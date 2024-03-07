@@ -8,6 +8,7 @@ package server;
 import java.util.List;
 
 public class Room {
+	private List<ClientStorage> connectedClients;
 	private List<String> chat;
 	private String password;
 	private String id;
@@ -55,6 +56,14 @@ public class Room {
 	
 	public boolean getIsProtected() {
 		return this.isProtected;
+	}
+
+	public List<ClientStorage> getConnectedClients() {
+		return connectedClients;
+	}
+
+	public void setConnectedClients(List<ClientStorage> connectedClients) {
+		this.connectedClients = connectedClients;
 	}
 
 	

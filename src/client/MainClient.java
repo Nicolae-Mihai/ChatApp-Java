@@ -41,8 +41,17 @@
 
 package client;
 
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Scanner;
+
 public class MainClient {
-	public static void main(String[] args) {
-		
+	public static void main(String[] args) throws IOException, NoSuchAlgorithmException{
+		try(Scanner nameInput=new Scanner(System.in)) {
+			System.out.println("Please tell us your name!\n");
+			String clientName=nameInput.nextLine();
+			Client client=new Client(clientName);
+			client.startClient();
+		} 
 	}
 }

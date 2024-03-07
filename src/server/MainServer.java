@@ -34,6 +34,12 @@
 
 package server;
 
-public class MainServer {
+import java.io.IOException;
 
+public class MainServer {
+	public static void main(String[] args) throws IOException{
+		Server server=new Server();
+		System.out.println("Starting server....\n");
+		server.startServer();
+	}
 }
