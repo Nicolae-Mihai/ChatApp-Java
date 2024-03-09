@@ -6,31 +6,39 @@
 package server;
 
 import java.io.IOException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
 public class Server extends Connection{
 
-	int servNum=1;
+	private KeyPair keyPair;
 	List<Room> rooms=new ArrayList<Room>();
 	Semaphore roomCreation= new Semaphore(1);
-	public Server() throws IOException {
+	public Server() throws IOException, NoSuchAlgorithmException {
 		super("server");
+		KeyPairGenerator kpa;
+		kpa = KeyPairGenerator.getInstance("RSA");
+		keyPair=kpa.generateKeyPair();
 	}
 	
 	public void startServer() {
 	
 		try {
 			System.out.println("Waiting...");
+			int servNum=1;
 			while(true){
 				cs=ss.accept();
-				ServerThread serv= new ServerThread("CharServer"+servNum,cs,rooms,roomCreation);
-				serv.startServer();
+				ServerThread serv= new ServerThread("CharServer"+servNum,this.cs,this.rooms,this.roomCreation,this.keyPair.getPublic(),this.keyPair.getPrivate());
+				serv.run();
 				servNum++;
 			}
 		} catch (Exception e) {
 			System.out.println("Client disconnected!");
+			e.printStackTrace();
 		}
 	}
 

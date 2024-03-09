@@ -4,8 +4,6 @@
  */
 package client;
 
-//import java.io.DataInputStream;
-//import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -27,6 +25,7 @@ public class Client extends Connection{
 	private boolean isConnectedToRoom;
 	private ObjectInputStream in;
 	private ObjectOutputStream out;
+	private String chatRoomName;
 	
 	public Client(String name) throws IOException, NoSuchAlgorithmException{
 		super("client");
@@ -36,17 +35,19 @@ public class Client extends Connection{
 		this.out= new ObjectOutputStream(cs.getOutputStream());
 		this.keyPair = kpa.generateKeyPair();
 		this.isConnectedToRoom=false;
+		
 	}
 	
 	public void startClient() {
 		try {
-			out.writeObject(name);
-			
-			serverPublicKey=(PublicKey) in.readObject();
 			out.writeObject(keyPair.getPublic());
-			String message= (String) in.readObject();
+			serverPublicKey=(PublicKey) in.readObject();
+			out.writeObject(encrypt(name));
+			
+			String message= (String) decrypt((byte[]) in.readObject());
 			System.out.println(message);
 			String option;
+			
 			try (Scanner entry = new Scanner(System.in)) {
 				while(true) {
 					if(isConnectedToRoom) {
@@ -55,12 +56,13 @@ public class Client extends Connection{
 						System.out.println("\nChoose one option (write only the number)!\n 1. Join chat room!\n 2. Create chat room!\n 3. Show chat rooms!\n 4.Close the app!\n");
 						option=entry.nextLine();
 						optionResponse(option,out,entry);
-	//					String option=entry.nextLine();
-	//					out.writeUTF(option);
+						
 						if(!running) break;
-						String response = (String) in.readObject();
+						
+						String response = decrypt((byte[]) in.readObject());
 						System.out.println(response);
-						if(response.equalsIgnoreCase("Connected to room!"))
+						
+						if(response.equalsIgnoreCase("Connected to room "+chatRoomName))
 							isConnectedToRoom= true;
 					}
 				}
@@ -73,15 +75,19 @@ public class Client extends Connection{
 		
 	}
 	
+	/*
+	 * pre:
+	 * post:This method is the menu which is presented to the client when not connected to a room.
+	 */
 	private void optionResponse(String option,ObjectOutputStream out,Scanner info) throws Exception {
-
-//		try(Scanner info=new Scanner(System.in)){
 			String chatRoomName;
 			switch (option) {
+			
 			case "1": // join chat room
 				System.out.println("\nYou chose to join a chat room! Please write the name of the chat room with it's identifier!\n(The room name and the identifier need to be separated by a '#')\n");
 				chatRoomName=info.nextLine();
-				out.writeObject(option+","+chatRoomName);
+				this.chatRoomName=chatRoomName;
+				out.writeObject(encrypt(option+","+chatRoomName));
 				break;
 				
 			case "2": // create chat room
@@ -110,11 +116,11 @@ public class Client extends Connection{
 						}
 					}
 				}
-				out.writeObject(option+","+chatRoomName+","+password);
+				out.writeObject(encrypt( option+","+chatRoomName+","+password));
 				break;
 				
 			case "3": // show chat rooms
-				out.writeObject(option);
+				out.writeObject(encrypt(option));
 				break;
 				
 			case "4": // exit 
@@ -123,19 +129,30 @@ public class Client extends Connection{
 				
 			default:
 				System.out.println("That option is no available! Please write only the number.");
+				out.writeObject(encrypt("foo"));
 			}
 		}
-//	}
-	
-	private void roomMenu(ObjectInputStream in ,ObjectOutputStream out, Scanner entry) throws IOException, ClassNotFoundException {
-		out.writeObject(entry.nextLine());
-		String response= (String) in.readObject();
+	/*
+	 * pre:
+	 * post: This method "traps" the client while in a room so the other options don't appear
+	 * once the client writes "/disconnect" the boolean "isConnectedToRoom" turns to false and 
+	 * disconnects the client.
+	 */
+	private void roomMenu(ObjectInputStream in ,ObjectOutputStream out, Scanner entry) throws Exception {
+		out.writeObject(encrypt(entry.nextLine()));
+		String response= (String) decrypt((byte[]) in.readObject());
+		
 		if(response.equalsIgnoreCase("disconnected"))
 			this.isConnectedToRoom=false;
+		
 		System.out.println(response);
 	}
 	
-	
+	/*
+	 * pre:
+	 * post:The encryption method used to encrypt the messages.
+	 * 
+	 */
 	private  byte[] encrypt(String message) throws Exception {
 		Cipher cipher= Cipher.getInstance("RSA");
 		cipher.init(Cipher.ENCRYPT_MODE, this.serverPublicKey);
@@ -143,6 +160,10 @@ public class Client extends Connection{
 		return cipher.doFinal(message.getBytes(StandardCharsets.UTF_8));
 	}
 
+	/*
+	 * pre
+	 * post: The method used to decrypt the messages recieved from the server.
+	 */
 	private String decrypt(byte[] message) throws Exception{
 		Cipher cipher=Cipher.getInstance("RSA");
 		cipher.init(Cipher.DECRYPT_MODE, keyPair.getPrivate());
