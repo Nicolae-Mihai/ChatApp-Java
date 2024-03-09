@@ -6,11 +6,15 @@
 package server;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Semaphore;
 
 public class Server extends Connection{
 
 	int servNum=1;
-
+	List<Room> rooms=new ArrayList<Room>();
+	Semaphore roomCreation= new Semaphore(1);
 	public Server() throws IOException {
 		super("server");
 	}
@@ -21,9 +25,8 @@ public class Server extends Connection{
 			System.out.println("Waiting...");
 			while(true){
 				cs=ss.accept();
-				ServerThread serv= new ServerThread("CharServer"+servNum);
+				ServerThread serv= new ServerThread("CharServer"+servNum,cs,rooms,roomCreation);
 				serv.startServer();
-				
 				servNum++;
 			}
 		} catch (Exception e) {
