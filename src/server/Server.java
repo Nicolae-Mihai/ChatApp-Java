@@ -27,7 +27,6 @@ public class Server extends Connection{
 				cs=ss.accept();
 				ServerThread serv= new ServerThread("CharServer"+servNum,cs,rooms,roomCreation);
 				serv.startServer();
-				
 				servNum++;
 			}
 		} catch (Exception e) {

@@ -1,17 +1,19 @@
 package server;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+//import java.io.DataInputStream;
+//import java.io.DataOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.security.PublicKey;
 
 public class ClientStorage {
 	
 	private String clientName;
-	private DataOutputStream out;
-	private DataInputStream in;
+	private ObjectOutputStream out;
+	private ObjectInputStream in;
 	private PublicKey publicKey;
-	
-	public ClientStorage(String clientName,DataOutputStream out,DataInputStream in, PublicKey publicKey) {
+//	
+	public ClientStorage(String clientName, ObjectOutputStream out, ObjectInputStream in, PublicKey publicKey) {
 		this.clientName=clientName;
 		this.out=out;
 		this.in=in;
@@ -26,19 +28,19 @@ public class ClientStorage {
 		this.clientName = clientName;
 	}
 
-	public DataOutputStream getOut() {
+	public ObjectOutputStream getOut() {
 		return out;
 	}
 
-	public void setOut(DataOutputStream out) {
+	public void setOut(ObjectOutputStream out) {
 		this.out = out;
 	}
 
-	public DataInputStream getIn() {
+	public ObjectInputStream getIn() {
 		return in;
 	}
 
-	public void setIn(DataInputStream in) {
+	public void setIn(ObjectInputStream in) {
 		this.in = in;
 	}
 

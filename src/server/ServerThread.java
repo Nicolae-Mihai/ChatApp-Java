@@ -4,94 +4,108 @@
  */
 package server;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+//import java.io.DataInputStream;
+//import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+
 // TODO: Create something so once a client is in a room the main server actually sends messages to all the clients connected to the room.
 
-public class ServerThread extends Server implements Runnable{
-	private Random random;
+public class ServerThread {
+	private Random random= new Random();
 	private String name;
 	private Socket cs;
 	private char[] leters= {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'};
 	private int[] numbers= {0,1,2,3,4,5,6,7,8,9,0};
 	private List<Room>rooms;
 	private Semaphore roomCreation;
-	ClientStorage client;
-	private PublicKey publicKey;
+	private ClientStorage client;
+	private KeyPair keyPair;
 	private PublicKey clientPublicKey;
-	
-	public ServerThread(String name,Socket cs,List<Room>rooms,Semaphore roomCreation) throws IOException {
-		this.name=name;
-		this.cs=cs;
-		this.rooms=rooms;
-		this.roomCreation=roomCreation;
+	private ObjectOutputStream out;
+	private ObjectInputStream in;
+	public ServerThread(String name,Socket cs,List<Room>rooms,Semaphore roomCreation) throws IOException{
+		try {
+			this.out= new ObjectOutputStream(cs.getOutputStream());
+			this.name=name;
+			this.rooms=rooms;
+			this.roomCreation=roomCreation;
+			this.cs=cs;
+			this.in= new ObjectInputStream(cs.getInputStream());
+			KeyPairGenerator kpa;
+			kpa = KeyPairGenerator.getInstance("RSA");
+			keyPair=kpa.generateKeyPair();
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
 	}
 
-	
-	
-	@Override
-	public void run(){
+	public void startServer(){
 	    try{
-	        System.out.println("Client online");
 	
-	        DataInputStream in = new DataInputStream(cs.getInputStream());
-	        DataOutputStream out = new DataOutputStream(cs.getOutputStream());
-	    	ObjectOutputStream OOut= new ObjectOutputStream(cs.getOutputStream());
-			ObjectInputStream OIn= new ObjectInputStream(cs.getInputStream());
+	    	String clientName =(String) in.readObject();
 	        
-			OOut.writeObject(publicKey);
-			clientPublicKey = (PublicKey) OIn.readObject();
+			out.writeObject(keyPair.getPublic());
+			clientPublicKey = (PublicKey) in.readObject();
 	        //Sends a message to the client using it's out tunnel
-	        out.writeUTF("Request recieved and accepted by "+ name);
-//	        need an in where the client gives the server the public key with all it's details
-	        String clientName = in.readUTF();
-	        this.client=new ClientStorage(clientName, out, in, clientPublicKey);
+	        System.out.println(clientName +" is online");
+	        out.writeObject("Request recieved and accepted by "+ name);
+//	        
+	        this.client=new ClientStorage(clientName, out, in,clientPublicKey);
 	        
 	        while(true) {
 	        		
 	        		if(checkClient())
+	        			System.out.println(clientName+" is connected a room!");
 	        			broadcast();
 	        	
-		            String message = in.readUTF();
+		            String message =(String) in.readObject();
+		            System.out.println(message);
 		            String[] parts=message.split(",");
 		            action(parts,out);
 		        if(message.equalsIgnoreCase("/disconnect")) break;
 	        }
 	        cs.close();//Closes the connection to the client
 	    } catch(Exception e){
-	        e.printStackTrace();
+	        System.out.println(client.getClientName()+" has disconnected!");
 	    }
 	}
 	
 	/*
 	 * pre:
-	 * post: Generates an random alphanumerical ID to be assigned to the rooms
+	 * post: Generates an random alphanumeric ID to be assigned to the rooms
 	 */
 	private String idGenerator() {
 		String identifier="";
 		for(int i=0;i<6;i++) {
-			boolean selector=random.nextBoolean();
-			if(selector) {
-				int index=random.nextInt(0, numbers.length+1);
+			if(random.nextBoolean()) {
+				int index=random.nextInt(0, numbers.length);
 				identifier+=numbers[index];
 			}else {
-				int index=random.nextInt(0, leters.length+1);
+				int index=random.nextInt(0, leters.length);
 				identifier+=leters[index];
 			}
 		}
 		return identifier;
 	}
 	
-	public void action(String[] parts,DataOutputStream out) throws IOException, InterruptedException{
+	public void action(String[] parts,ObjectOutputStream out) throws IOException, InterruptedException{
 		
 		switch (parts[0]) {
 			case "1": // join room
@@ -103,28 +117,32 @@ public class ServerThread extends Server implements Runnable{
 								roomCreation.acquire();
 								room.getConnectedClients().add(client);
 								roomCreation.release();
+//								out.writeUTF("Connected to room "+room.getName());
+								out.writeObject("Connected to room!");
 							}
 					}
 				} catch (IndexOutOfBoundsException ioobe) {
 					if(roomDetails[1]==null)
-						out.writeUTF("No room ID provided please keep in mind to separate the room name and ID with '#'\n");
+						out.writeObject("No room ID provided please keep in mind to separate the room name and ID with '#'\n");
 					else 
-						out.writeUTF("An error ocurred while processing your request\n");
+						out.writeObject("An error ocurred while processing your request\n");
 				}
 				break;
 				
 			case "2": // create room
-				if(parts[2]!=null) 
+				if(!parts[2].equalsIgnoreCase("null")) 
 					rooms.add(new Room(parts[1], parts[2], checkIdValidity()));
 				else 
 					rooms.add(new Room(parts[1], checkIdValidity()));
+				out.writeObject("Room created successfully!");
 				break;
+				
 			
 			case "3": // show rooms
 				String roomList="This are all the rooms available:\n";
 				for(Room room:rooms)
 					roomList+="~ "+room.getName()+"#"+room.getId()+"\n";
-					out.writeUTF(roomList);
+					out.writeObject(roomList);
 				break;
 				
 			case "4": //disconnect client
@@ -176,16 +194,45 @@ public class ServerThread extends Server implements Runnable{
 	 * pre:
 	 * post:This method broadcasts to all the clients in the same room as the client what the client sends to this server thread
 	 */
-	private void broadcast() throws IOException {
+	private void broadcast() throws IOException, ClassNotFoundException {
 		for(Room room:rooms)
 			while(room.getConnectedClients().contains(this.client)) {
-				String clientMessage=this.client.getIn().readUTF();
+				String clientMessage=(String) this.client.getIn().readObject();
 				if(clientMessage.equalsIgnoreCase("/disconnect")) {
 					room.getConnectedClients().remove(this.client);
+					client.getOut().writeObject("disconnected");
 					break;
 				}
+				client.getOut().writeObject("recieved: "+clientMessage);
 				for(ClientStorage client:room.getConnectedClients())
-					client.getOut().writeUTF(clientMessage);
+					if(!this.client.equals(client))
+						client.getOut().writeObject(clientMessage);
 			}
+	}
+	/*
+	 * pre:
+	 * post: method to encrypt a message
+	 */
+	private byte[] encrypt(String message) throws Exception{
+		Cipher cipher=Cipher.getInstance("RSA");
+		cipher.init(Cipher.DECRYPT_MODE, clientPublicKey);
+		return cipher.doFinal(message.getBytes(StandardCharsets.UTF_8));
+	}
+	/*
+	 * pre:
+	 * post: method to decrypt a message
+	 */
+	private String decrypt(byte[] encryptedMessage) {
+		byte[] decryptedMessage = {};
+		try {
+			Cipher cipher;
+			cipher = Cipher.getInstance("RSA");
+			cipher.init(Cipher.DECRYPT_MODE, keyPair.getPrivate());
+			decryptedMessage=cipher.doFinal(encryptedMessage);
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
+			e.printStackTrace();
+		}
+		
+		return new String(decryptedMessage);
 	}
 }

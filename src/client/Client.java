@@ -4,8 +4,8 @@
  */
 package client;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+//import java.io.DataInputStream;
+//import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -18,59 +18,70 @@ import java.util.Scanner;
 
 import javax.crypto.Cipher;
 
-// kind of ready, still need some tweaks tho
 
 public class Client extends Connection{
 	private boolean running=true;
 	private String name;
 	private PublicKey serverPublicKey;
 	private KeyPair keyPair;
+	private boolean isConnectedToRoom;
+	private ObjectInputStream in;
+	private ObjectOutputStream out;
 	
 	public Client(String name) throws IOException, NoSuchAlgorithmException{
 		super("client");
+		this.in= new ObjectInputStream(cs.getInputStream());
 		this.name=name;
 		KeyPairGenerator kpa= KeyPairGenerator.getInstance("RSA");
+		this.out= new ObjectOutputStream(cs.getOutputStream());
 		this.keyPair = kpa.generateKeyPair();
+		this.isConnectedToRoom=false;
 	}
+	
 	public void startClient() {
 		try {
-			DataInputStream in= new DataInputStream(cs.getInputStream());
-			DataOutputStream out=new DataOutputStream(cs.getOutputStream());
-			ObjectOutputStream OOut= new ObjectOutputStream(cs.getOutputStream());
-			ObjectInputStream OIn= new ObjectInputStream(cs.getInputStream());
-
-			serverPublicKey=(PublicKey) OIn.readObject();
-			OOut.writeObject(keyPair.getPublic());
-			String message=in.readUTF();
-			System.out.println(message);
-			out.write(encrypt(name));
+			out.writeObject(name);
 			
+			serverPublicKey=(PublicKey) in.readObject();
+			out.writeObject(keyPair.getPublic());
+			String message= (String) in.readObject();
+			System.out.println(message);
+			String option;
 			try (Scanner entry = new Scanner(System.in)) {
 				while(true) {
-					System.out.println("\nChoose one option (write only the number)!\n 1. Join chat room!\n 2. Create chat room!\n 3. Show chat rooms!\n 4.Close the app!\n");
-					optionResponse(entry.nextLine(),out);
-//					String option=entry.nextLine();
-//					out.writeUTF(option);
-					if(!running) break;
-					System.out.println(decrypt(in.readAllBytes()));
+					if(isConnectedToRoom) {
+						roomMenu(in, out, entry);
+					}else {
+						System.out.println("\nChoose one option (write only the number)!\n 1. Join chat room!\n 2. Create chat room!\n 3. Show chat rooms!\n 4.Close the app!\n");
+						option=entry.nextLine();
+						optionResponse(option,out,entry);
+	//					String option=entry.nextLine();
+	//					out.writeUTF(option);
+						if(!running) break;
+						String response = (String) in.readObject();
+						System.out.println(response);
+						if(response.equalsIgnoreCase("Connected to room!"))
+							isConnectedToRoom= true;
+					}
 				}
 			}
 			
 		} catch (Exception e) {
+			e.printStackTrace();
 			System.out.println("Client disconnected!");
 		}
 		
 	}
 	
-	private void optionResponse(String option,DataOutputStream out) throws Exception {
+	private void optionResponse(String option,ObjectOutputStream out,Scanner info) throws Exception {
 
-		try(Scanner info=new Scanner(System.in)){
+//		try(Scanner info=new Scanner(System.in)){
 			String chatRoomName;
 			switch (option) {
 			case "1": // join chat room
 				System.out.println("\nYou chose to join a chat room! Please write the name of the chat room with it's identifier!\n(The room name and the identifier need to be separated by a '#')\n");
 				chatRoomName=info.nextLine();
-				out.write(encrypt(option+","+chatRoomName));
+				out.writeObject(option+","+chatRoomName);
 				break;
 				
 			case "2": // create chat room
@@ -79,20 +90,19 @@ public class Client extends Connection{
 				chatRoomName= info.nextLine();
 				System.out.println("Do you wish to assign a password to this chat room?(Write only the numbers)\n 1.Yes!\n 2.No!\n");
 				String passwordProtected=info.nextLine();
-
+				String password="null";
 				if(passwordProtected.equalsIgnoreCase("1")) {
 					boolean passwordsMatch=false;
 					while (!passwordsMatch) {
 						
 						System.out.println("Please write the password you wish to assing to this chat room!\n");
-						String password=info.nextLine();
+						password=info.nextLine();
 						System.out.println("Please Repeat the password!\n");
 						String passwordConfirmation=info.nextLine();
 						
 						if(password.equals(passwordConfirmation)) {
 							System.out.println("The passwords match!\n");
 							passwordsMatch=true;
-							out.write(encrypt(option+","+chatRoomName+","+password));
 
 						}else {
 							System.out.println("The passwords do not match so we will create the chat room without a password!");
@@ -100,11 +110,11 @@ public class Client extends Connection{
 						}
 					}
 				}
-				out.write(encrypt(option+","+chatRoomName+","+null));
+				out.writeObject(option+","+chatRoomName+","+password);
 				break;
 				
 			case "3": // show chat rooms
-				out.write(encrypt(option));
+				out.writeObject(option);
 				break;
 				
 			case "4": // exit 
@@ -115,7 +125,16 @@ public class Client extends Connection{
 				System.out.println("That option is no available! Please write only the number.");
 			}
 		}
+//	}
+	
+	private void roomMenu(ObjectInputStream in ,ObjectOutputStream out, Scanner entry) throws IOException, ClassNotFoundException {
+		out.writeObject(entry.nextLine());
+		String response= (String) in.readObject();
+		if(response.equalsIgnoreCase("disconnected"))
+			this.isConnectedToRoom=false;
+		System.out.println(response);
 	}
+	
 	
 	private  byte[] encrypt(String message) throws Exception {
 		Cipher cipher= Cipher.getInstance("RSA");

@@ -5,6 +5,7 @@
  */
 package server;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Room {
@@ -16,6 +17,8 @@ public class Room {
 	private boolean isProtected;
 	
 	public Room (String name, String password, String id) {
+		
+		this.connectedClients=new ArrayList<ClientStorage>();
 		this.name = name;
 		this.password = password;
 		this.id = id;
@@ -23,6 +26,7 @@ public class Room {
 	}
 	
 	public Room (String name, String id) {
+		this.connectedClients=new ArrayList<ClientStorage>();
 		this.name = name;
 		this.id = id;
 		this.isProtected = false;
