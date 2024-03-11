@@ -85,9 +85,13 @@ public class Client extends Connection{
 			
 			case "1": // join chat room
 				System.out.println("\nYou chose to join a chat room! Please write the name of the chat room with it's identifier!\n(The room name and the identifier need to be separated by a '#')\n");
+				
 				chatRoomName=info.nextLine();
 				this.chatRoomName=chatRoomName;
 				out.writeObject(encrypt(option+","+chatRoomName));
+				String serverResponse = (String) decrypt((byte[])in.readObject()); //TODO quiero que el cliente se quede aqui esperando la respuesta
+				if(!serverResponse.equals("The room had no password"))
+					passwordHandler(out, in, info);
 				break;
 				
 			case "2": // create chat room
@@ -169,5 +173,43 @@ public class Client extends Connection{
 		cipher.init(Cipher.DECRYPT_MODE, keyPair.getPrivate());
 		byte[] plainText = cipher.doFinal(message);
 		return new String(plainText);
+	}
+	
+	/**
+	 * pre:--
+	 * post: Method that handles the first response from the server regarding
+	 * the existence of a password in the room. 
+	 * @throws Exception 
+	 * @throws IOException 
+	 * @throws ClassNotFoundException 
+	 * */
+	private void passwordHandler(ObjectOutputStream out, ObjectInputStream in, Scanner scan) throws ClassNotFoundException, IOException, Exception {
+		String serverMessage;
+		serverMessage = decrypt((byte[]) in.readObject());//Decrypt the message from the server and print it
+		System.out.println(serverMessage);
+		
+		String messageClient = scan.nextLine();//Store and send pwd
+		out.writeObject(encrypt(messageClient));
+		
+		serverMessage = decrypt((byte[]) in.readObject());
+		/*
+		 * If the server is responding any kind of message that indicates
+		 * that our password is not correct we will be stuck in a loop
+		 * untill some condition is met
+		 * */
+		if(!serverMessage.contains("Connected to room")) {
+			boolean stuck = true;
+			while(stuck) {
+				messageClient = scan.nextLine();//Retry sending pwd
+				out.writeObject(encrypt(messageClient));
+				serverMessage = decrypt((byte[]) in.readObject());//Decrypt the message from the server and print it
+
+				if(serverMessage.equals("Failed to connect. Incorrect password")) break;
+				if(serverMessage.contains("Connected to room")) {
+					this.isConnectedToRoom = true;
+					break;
+				}
+			}
+		}
 	}
 }

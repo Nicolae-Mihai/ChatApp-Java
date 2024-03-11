@@ -29,19 +29,19 @@ public class ServerThread extends Thread{
 	private char[] leters= {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'};
 	private int[] numbers= {0,1,2,3,4,5,6,7,8,9,0};
 	private List<Room>rooms;
-	private Semaphore roomCreation;
+	private Semaphore semRoomCreation;
 	private ClientStorage client;
 	private PublicKey publicKey;
 	private PrivateKey privateKey;
 	private PublicKey clientPublicKey;
 	private ObjectOutputStream out;
 	private ObjectInputStream in;
-	
+
 	public ServerThread(String name,Socket cs,List<Room>rooms,Semaphore roomCreation,PublicKey publicKey, PrivateKey privateKey ) throws IOException{
 		try {
 			this.name = name;
 			this.rooms = rooms;
-			this.roomCreation = roomCreation;
+			this.semRoomCreation = roomCreation;
 			this.cs = cs;
 			this.publicKey = publicKey;
 			this.privateKey = privateKey;
@@ -54,37 +54,36 @@ public class ServerThread extends Thread{
 
 	@Override
 	public void run(){
-	    try{
-	
-	    	clientPublicKey = (PublicKey) in.readObject();
-	    	this.out.writeObject(publicKey);
+		try{
 
-	    	String clientName =decrypt((byte[])this.in.readObject());
-	        
-	        //Sends a message to the client using it's out tunnel
-	        System.out.println(clientName +" is online");
-	        this.client=new ClientStorage(clientName, out, in,clientPublicKey);
-	        out.writeObject(encrypt("Request recieved and accepted by "+ name, clientPublicKey));
-	        
-	        while(true) {
-	        		
-	        		if(checkClient())
-	        			System.out.println(clientName+" is connected a room!");
-	        			broadcast();
-	        	
-		            String message =(String) decrypt((byte[]) in.readObject());
-		            System.out.println(message);
-		            String[] parts=message.split(",");
-		            action(parts,out);
-		        if(message.equalsIgnoreCase("/disconnect")) break;
-	        }
-	        cs.close();//Closes the connection to the client
-	    } catch(Exception e){
-	        System.out.println(client.getClientName()+" has disconnected!");
-	        e.printStackTrace();
-	    }
+			clientPublicKey = (PublicKey) in.readObject();
+			this.out.writeObject(publicKey);
+
+			String clientName =decrypt((byte[])this.in.readObject());
+
+			//Sends a message to the client using it's out tunnel
+			System.out.println(clientName +" is online");
+			this.client=new ClientStorage(clientName, out, in,clientPublicKey);
+			out.writeObject(encrypt("Request recieved and accepted by "+ name, clientPublicKey));
+
+			while(true) {
+				if(checkClient()) {
+				System.out.println(clientName+" is connected a room!");
+				}
+				broadcast();
+				String message =(String) decrypt((byte[]) in.readObject());
+				System.out.println(message);
+				String[] parts=message.split(",");
+				action(parts,out);
+				if(message.equalsIgnoreCase("/disconnect")) break;
+			}
+			cs.close();//Closes the connection to the client
+		} catch(Exception e){
+			System.out.println(client.getClientName()+" has disconnected!");
+			e.printStackTrace();
+		}
 	}
-	
+
 	/*
 	 * pre:
 	 * post: Generates an random alphanumeric ID to be assigned to the rooms
@@ -102,64 +101,84 @@ public class ServerThread extends Thread{
 		}
 		return identifier;
 	}
-	
+
 	/*
 	 * pre:
 	 * post:This method acts in conformity with the clients's request and depending on the action
 	 * the client decides to make acts on it.
 	 */
 	public void action(String[] parts,ObjectOutputStream out) throws Exception{
-		
-		switch (parts[0]) {
-		
-			case "1": // join room
-				String[] roomDetails = parts[1].split("#");
-				try {
-					if(!rooms.isEmpty()) {
-						for(Room room:rooms)
-							if(room.getName().equals(roomDetails[0]) && room.getId().equals(roomDetails[1])) {
-								roomCreation.acquire();
-								room.getConnectedClients().add(client);
-								roomCreation.release();								
-								out.writeObject(encrypt("Connected to room "+room.getName()+"#"+room.getId(), clientPublicKey));
-							
-							}else  	out.writeObject(encrypt("No room with that name exists!", clientPublicKey));
-					}else 	out.writeObject(encrypt("There are no rooms created!", clientPublicKey));
-				} catch (IndexOutOfBoundsException ioobe) {
-					if(roomDetails[1]==null)
-						out.writeObject(encrypt("No room ID provided please keep in mind to separate the room name and ID with '#'\n", clientPublicKey));
-					else 
-						out.writeObject(encrypt("An error ocurred while processing your request\n", clientPublicKey));
-				}
-				break;
-				
-			case "2": // create room
-				if(!parts[2].equalsIgnoreCase("null")) 
-					rooms.add(new Room(parts[1], parts[2], checkIdValidity()));
-				else 
-					rooms.add(new Room(parts[1], checkIdValidity()));
-				out.writeObject(encrypt("Room created successfully!", clientPublicKey));
-				break;
-				
-			
-			case "3": // show rooms
-				String roomList="This are all the rooms available:\n";
-				for(Room room:rooms)
-					roomList+="~ "+room.getName()+"#"+room.getId()+"\n";
-					out.writeObject(encrypt(roomList,clientPublicKey));
-				break;
-				
-			case "4": //disconnect client
-				
-				break;
 
-			default:
-				out.writeObject(encrypt("Something unexpected happened while processing your request", clientPublicKey));
-				
-				System.out.println();
+		switch (parts[0]) {
+
+		case "1": // join room
+			String[] roomDetails = parts[1].split("#");//Split the message sent by the client and read its instructions
+			String serverMessage;
+			try {
+				if(!rooms.isEmpty()) {
+					for(Room room:rooms)
+						if(room.getName().equals(roomDetails[0]) && room.getId().equals(roomDetails[1])) {//TODO hay que explicar la estructura del mensaje																										
+																											//porque no se entiende este chorizo de codigo
+							if(room.getIsProtected()) {
+								out.writeObject(encrypt( "Please enter the password",clientPublicKey));
+								String clientPassword = (String) decrypt((byte[]) in.readObject());  // Wait for password
+								for(int i = 0; i < 3; i ++) {
+									if (room.getPassword().equals(clientPassword)) {  // Check password validity
+										room.getConnectedClients().add(client); // Add the client to the list of clients of the room
+										serverMessage = "Connected to room " + room.getName() + "#" + room.getId();
+										out.writeObject(encrypt(serverMessage, clientPublicKey));
+										break; //TODO: SI DA FALLO REVISAR POR AQUI
+									} else {
+										serverMessage = "Invalid password. You have " + (2 - i) + " tries left";
+										if(i==2) {
+											serverMessage = "Failed to connect. Incorrect password";
+										}
+										out.writeObject(encrypt(serverMessage, clientPublicKey));
+									}
+								}
+							} else {
+								serverMessage = "The room had no password";
+								out.writeObject(encrypt(serverMessage, clientPublicKey));
+							}
+						}else  	out.writeObject(encrypt("No room with that name exists!", clientPublicKey));
+				}else 	out.writeObject(encrypt("There are no rooms created!", clientPublicKey));
+			} catch (IndexOutOfBoundsException ioobe) {
+				if(roomDetails[1]==null)
+					out.writeObject(encrypt("No room ID provided please keep in mind to separate the room name and ID with '#'\n", clientPublicKey));
+				else 
+					out.writeObject(encrypt("An error ocurred while processing your request\n", clientPublicKey));
+			}
+			break;
+
+		case "2": // create room
+			semRoomCreation.acquire();
+			if(!parts[2].equalsIgnoreCase("null")) 
+				rooms.add(new Room(parts[1], parts[2], checkIdValidity()));
+			else 
+				rooms.add(new Room(parts[1], checkIdValidity()));
+			out.writeObject(encrypt("Room created successfully!", clientPublicKey));
+			semRoomCreation.release();
+			break;
+
+
+		case "3": // show rooms
+			String roomList="This are all the rooms available:\n";
+			for(Room room:rooms)
+				roomList+="~ "+room.getName()+"#"+room.getId()+"\n";
+			out.writeObject(encrypt(roomList,clientPublicKey));
+			break;
+
+		case "4": //disconnect client
+
+			break;
+
+		default:
+			out.writeObject(encrypt("Something unexpected happened while processing your request", clientPublicKey));
+
+			System.out.println();
 		}
 	}
-	
+
 	/*
 	 * pre:
 	 * post: Checks if the Id generated by idGenerator() is valid if it's valid it returns it,
@@ -168,20 +187,20 @@ public class ServerThread extends Thread{
 	public String checkIdValidity() {
 		boolean validId=false;
 		String id="";
-		
+
 		while(!validId) {
 			int count=0;
 			id=idGenerator();
-		
+
 			if(!rooms.isEmpty())
 				for(Room room:rooms)
 					if(id.equals(room.getId()))
 						count++;
-			
+
 			if(count==0)
 				validId=true;
 		}
-		
+
 		return id;
 	}
 
@@ -195,23 +214,25 @@ public class ServerThread extends Thread{
 				return true;
 		return false;
 	}
-	
+
 	/*
 	 * pre:
-	 * post:This method broadcasts to all the clients in the same room as the client what the client sends to this server thread
+	 * post:This method broadcasts to all the clients in the same room as the client what the client 
+	 * sends to this server thread
 	 */
 	private void broadcast() throws Exception {
 		for(Room room:rooms)
 			while(room.getConnectedClients().contains(this.client)) {
 				String clientMessage=decrypt((byte[]) this.client.getIn().readObject());
-				
+
 				if(clientMessage.equalsIgnoreCase("/disconnect")) {
 					room.getConnectedClients().remove(this.client);
 					client.getOut().writeObject(encrypt("disconnected", client.getPublicKey()));
 					break;
 				}
-				
-//				this is here for testing purposes it echos bact to the client the messages it sends to test the encryption and connectivity
+
+				//				this is here for testing purposes it echos bact to the client the messages it sends 
+				//to test the encryption and connectivity
 				client.getOut().writeObject(encrypt("recieved: "+clientMessage,clientPublicKey));
 				for(ClientStorage client:room.getConnectedClients())
 					if(!this.client.equals(client))
@@ -241,7 +262,7 @@ public class ServerThread extends Thread{
 		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
 			e.printStackTrace();
 		}
-		
+
 		return new String(decryptedMessage);
 	}
 }
