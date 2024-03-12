@@ -51,7 +51,7 @@ public class MainClient {
 			System.out.println("Please tell us your name!\n");
 			String clientName=nameInput.nextLine();
 			Client client=new Client(clientName);
-			client.startClient();
+			client.run();
 		} 
 	}
 }

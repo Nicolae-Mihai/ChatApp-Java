@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
-public class Server extends Connection{
+public class Server extends Connection implements Runnable{
 
 	private KeyPair keyPair;
 	List<Room> rooms=new ArrayList<Room>();
@@ -24,14 +24,14 @@ public class Server extends Connection{
 		kpa = KeyPairGenerator.getInstance("RSA");
 		keyPair=kpa.generateKeyPair();
 	}
-	
-	public void startServer() {
+	@Override
+	public void run() {
 	
 		try {
 			System.out.println("Waiting...");
 			int servNum=1;
 			while(true){
-				cs=ss.accept();
+				this.cs=ss.accept();
 				ServerThread serv= new ServerThread("CharServer"+servNum,this.cs,this.rooms,this.roomCreation,this.keyPair.getPublic(),this.keyPair.getPrivate());
 				serv.run();
 				servNum++;

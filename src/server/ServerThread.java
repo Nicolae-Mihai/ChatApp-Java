@@ -67,9 +67,9 @@ public class ServerThread extends Thread{
 			out.writeObject(encrypt("Request recieved and accepted by "+ name, clientPublicKey));
 
 			while(true) {
-				if(checkClient()) {
-				System.out.println(clientName+" is connected a room!");
-				}
+				if(checkClient()) 
+					out.writeObject(encrypt(clientName+" is connected to a room!", clientPublicKey));
+				
 				broadcast();
 				String message =(String) decrypt((byte[]) in.readObject());
 				System.out.println(message);
@@ -80,7 +80,6 @@ public class ServerThread extends Thread{
 			cs.close();//Closes the connection to the client
 		} catch(Exception e){
 			System.out.println(client.getClientName()+" has disconnected!");
-			e.printStackTrace();
 		}
 	}
 
@@ -108,7 +107,7 @@ public class ServerThread extends Thread{
 	 * the client decides to make acts on it.
 	 */
 	public void action(String[] parts,ObjectOutputStream out) throws Exception{
-
+//	TODO: clean up the message parts so they are easier to understand i.e. assign them to variables
 		switch (parts[0]) {
 
 		case "1": // join room
@@ -117,17 +116,18 @@ public class ServerThread extends Thread{
 			try {
 				if(!rooms.isEmpty()) {
 					for(Room room:rooms)
-						if(room.getName().equals(roomDetails[0]) && room.getId().equals(roomDetails[1])) {//TODO hay que explicar la estructura del mensaje																										
-																											//porque no se entiende este chorizo de codigo
+						if(room.getName().equals(roomDetails[0]) && room.getId().equals(roomDetails[1])) {
 							if(room.getIsProtected()) {
 								out.writeObject(encrypt( "Please enter the password",clientPublicKey));
-								String clientPassword = (String) decrypt((byte[]) in.readObject());  // Wait for password
 								for(int i = 0; i < 3; i ++) {
+									String clientPassword = (String) decrypt((byte[]) in.readObject());  // Wait for password || it stops here
 									if (room.getPassword().equals(clientPassword)) {  // Check password validity
 										room.getConnectedClients().add(client); // Add the client to the list of clients of the room
 										serverMessage = "Connected to room " + room.getName() + "#" + room.getId();
 										out.writeObject(encrypt(serverMessage, clientPublicKey));
-										break; //TODO: SI DA FALLO REVISAR POR AQUI
+//										out.writeObject(encrypt("Please start writing your message!\n", clientPublicKey));
+										
+										break;
 									} else {
 										serverMessage = "Invalid password. You have " + (2 - i) + " tries left";
 										if(i==2) {
@@ -137,8 +137,11 @@ public class ServerThread extends Thread{
 									}
 								}
 							} else {
-								serverMessage = "The room had no password";
+								serverMessage = "The room has no password";
 								out.writeObject(encrypt(serverMessage, clientPublicKey));
+								room.getConnectedClients().add(client); // Add the client to the list of clients of the room
+//								serverMessage = "Connected to room " + room.getName() + "#" + room.getId();
+//								out.writeObject(encrypt(serverMessage, clientPublicKey));
 							}
 						}else  	out.writeObject(encrypt("No room with that name exists!", clientPublicKey));
 				}else 	out.writeObject(encrypt("There are no rooms created!", clientPublicKey));

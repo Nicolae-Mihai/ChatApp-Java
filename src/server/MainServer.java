@@ -42,6 +42,6 @@ public class MainServer {
 		Server server=new Server();
 		
 		System.out.println("Starting server....\n");
-		server.startServer();
+		server.run();
 	}
 }
