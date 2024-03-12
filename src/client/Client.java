@@ -25,6 +25,7 @@ public class Client extends Connection implements Runnable{
 	private ObjectInputStream in;
 	private ObjectOutputStream out;
 //	private String chatRoomName;
+	private boolean threadsRunning = false;
 
 	public Client(String name) throws IOException, NoSuchAlgorithmException {
 		super("client");
@@ -49,9 +50,9 @@ public class Client extends Connection implements Runnable{
 
 			try (Scanner entry = new Scanner(System.in)) {
 				while (true) {
-					if (isConnectedToRoom) {
+					if (isConnectedToRoom && !threadsRunning) {
 						roomMenu(in, out, entry);
-					} else {
+					} else if(!threadsRunning) {
 						System.out.println("\nChoose one option (write only the number)!\n 1. Join chat room!\n 2. Create chat room!\n 3. Show chat rooms!\n 4.Close the app!\n");
 						option = entry.nextLine();
 						optionResponse(option, out, entry);
@@ -146,7 +147,7 @@ public class Client extends Connection implements Runnable{
 	 * options don't appear once the client writes "/disconnect" the boolean
 	 * "isConnectedToRoom" turns to false and disconnects the client.
 	 */
-	private void roomMenu(ObjectInputStream in ,ObjectOutputStream out, Scanner entry) throws Exception {
+	private void  roomMenu(ObjectInputStream in ,ObjectOutputStream out, Scanner entry) throws Exception {
 //		out.writeObject(encrypt(entry.nextLine()));
 //		String response= (String) decrypt((byte[]) in.readObject());
 //		
@@ -154,9 +155,9 @@ public class Client extends Connection implements Runnable{
 //			this.isConnectedToRoom=false;
 		ReadingThread rt = new ReadingThread(in, keyPair.getPrivate(), isConnectedToRoom);
 		WritingThread wt = new WritingThread(entry, out, serverPublicKey);
-		rt.run();
-		wt.run();
-//			
+		rt.start();
+		wt.start();
+		threadsRunning = true;	
 		}
 //		
 //		System.out.println(response);

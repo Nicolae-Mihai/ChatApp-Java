@@ -9,7 +9,7 @@ import java.net.Socket;
 
 public class Connection {
     private final int PORT = 1234; //The port used for the connexion
-    private final String HOST = "localhost"; //Host used for the connexion
+    private final String HOST = "192.168.13.14"; //Host used for the connexion
     protected ServerSocket ss; //Server socket
     protected Socket cs; //Client socket
     

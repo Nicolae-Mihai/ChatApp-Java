@@ -236,7 +236,7 @@ public class ServerThread extends Thread{
 
 				//				this is here for testing purposes it echos bact to the client the messages it sends 
 				//to test the encryption and connectivity
-				client.getOut().writeObject(encrypt("recieved: "+clientMessage,clientPublicKey));
+				//client.getOut().writeObject(encrypt("recieved: "+clientMessage,clientPublicKey));
 				for(ClientStorage client:room.getConnectedClients())
 					if(!this.client.equals(client))
 						client.getOut().writeObject(encrypt(clientMessage, client.getPublicKey()));
