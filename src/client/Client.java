@@ -195,8 +195,6 @@ public class Client extends Connection implements Runnable{
 	private void passwordHandler(ObjectOutputStream out, ObjectInputStream in, Scanner scan)
 			throws ClassNotFoundException, IOException, Exception {
 		String serverMessage;
-//		serverMessage = decrypt((byte[]) in.readObject());//Decrypt the message from the server and print it || It stops here
-//		System.out.println(serverMessage);
 
 		System.out.println("Please enter a password"); // this could be better if it came from the server???IDK
 		String messageClient = scan.nextLine();// Store and send pwd

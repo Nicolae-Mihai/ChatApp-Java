@@ -7,10 +7,6 @@ import java.util.Scanner;
 
 import javax.crypto.Cipher;
 
-/*
- * At the moment I am still doubting the approach of creating the writing 
- * thread like this but for the moment will do.
- */
 public class WritingThread extends Thread{
 
 	private PublicKey serverPublicKey;
@@ -38,10 +34,14 @@ public class WritingThread extends Thread{
 	}
 	
 	
-	private  byte[] encrypt(String message) throws Exception {
-		Cipher cipher= Cipher.getInstance("RSA");
-		cipher.init(Cipher.ENCRYPT_MODE, this.serverPublicKey);
-		
-		return cipher.doFinal(message.getBytes(StandardCharsets.UTF_8));
-	}
+    // Encrypts the given message using RSA encryption.
+    private byte[] encrypt(String message) throws Exception {
+        // Create a Cipher instance for RSA encryption
+        Cipher cipher = Cipher.getInstance("RSA");
+        // Initialize the Cipher with the server's public key for encryption
+        cipher.init(Cipher.ENCRYPT_MODE, this.serverPublicKey);
+        // Encrypt the message using UTF-8 encoding and return the encrypted byte array
+        return cipher.doFinal(message.getBytes(StandardCharsets.UTF_8));
+    }
+
 }

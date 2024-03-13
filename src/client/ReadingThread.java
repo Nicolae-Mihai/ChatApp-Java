@@ -38,10 +38,15 @@ public class ReadingThread extends Thread{
 			}
 		}
 	}
-	private String decrypt(byte[] message) throws Exception{
-		Cipher cipher=Cipher.getInstance("RSA");
-		cipher.init(Cipher.DECRYPT_MODE, clientPrivateKey);
-		byte[] plainText = cipher.doFinal(message);
-		return new String(plainText);
-	}
+    // Decrypts the given message using RSA decryption.
+    private String decrypt(byte[] message) throws Exception{
+        // Create a Cipher instance for RSA decryption
+        Cipher cipher = Cipher.getInstance("RSA");
+        // Initialize the Cipher with the client's private key for decryption
+        cipher.init(Cipher.DECRYPT_MODE, clientPrivateKey);
+        // Decrypt the message and convert the resulting byte array to a string
+        byte[] plainText = cipher.doFinal(message);
+        return new String(plainText);
+    }
+
 }

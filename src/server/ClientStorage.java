@@ -3,14 +3,17 @@ package server;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.security.PublicKey;
-
+/**
+ * pre:
+ * post: Class dedicated to instanciate the clients and its ins and outs
+ * */
 public class ClientStorage {
 	
 	private String clientName;
 	private ObjectOutputStream out;
 	private ObjectInputStream in;
 	private PublicKey publicKey;
-//	
+
 	public ClientStorage(String clientName, ObjectOutputStream out, ObjectInputStream in, PublicKey publicKey) {
 		this.clientName=clientName;
 		this.out=out;

@@ -33,7 +33,7 @@ public class Server extends Connection implements Runnable{
 			while(true){
 				this.cs=ss.accept();
 				ServerThread serv= new ServerThread("CharServer"+servNum,this.cs,this.rooms,this.roomCreation,this.keyPair.getPublic(),this.keyPair.getPrivate());
-				serv.run();
+				serv.start();
 				servNum++;
 			}
 		} catch (Exception e) {
